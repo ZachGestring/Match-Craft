@@ -1,7 +1,11 @@
 import os
 import sys
 import discord
+from discord import app_commands
+from discord.ext import commands
 from dotenv import load_dotenv
+from cogs.owner_controls import OwnerControls
+from utils.database import db_manager
 
 # Load environment variables from .env file
 load_dotenv()
@@ -12,12 +16,20 @@ GUILD_ID = os.getenv('GUILD_ID')
 intents = discord.Intents.default()
 intents.message_content = True
 
-class MyClient(discord.Client):
+class MyClient(commands.Bot):
     def __init__(self, *, intents: discord.Intents):
-        super().__init__(intents=intents)
-        self.tree = discord.app_commands.CommandTree(self)
+        super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
+        # Initialize the database
+        await db_manager.initialize()
+        
+        # Clear all existing commands to start fresh
+        self.tree.clear_commands(guild=None)
+        
+        # Add the cog (which will register all its commands)
+        await self.add_cog(OwnerControls(self))
+        
         if GUILD_ID:
             guild = discord.Object(id=GUILD_ID)
             self.tree.copy_global_to(guild=guild)
@@ -29,11 +41,12 @@ class MyClient(discord.Client):
         print(f'Logged in as {self.user} (ID: {self.user.id})') # type: ignore
         print('------')
 
-client = MyClient(intents=intents)
+    async def close(self):
+        # Clean up database connections
+        await db_manager.close()
+        await super().close()
 
-@client.tree.command()
-async def hello(interaction: discord.Interaction):
-    await interaction.response.send_message(f'Hello, {interaction.user.mention}!')
+client = MyClient(intents=intents)
 
 def main():
     client.run(TOKEN) # type: ignore
