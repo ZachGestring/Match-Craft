@@ -1,0 +1,27 @@
+services:
+  bot:
+    build: .
+    env_file:
+      - .env
+    depends_on:
+      - db
+    restart: always
+    networks:
+      - app-net
+
+  db:
+    image: postgres:15-alpine
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    restart: always
+    networks:
+      - app-net
+
+volumes:
+  postgres_data:
+
+networks:
+  app-net:
+    driver: bridge
