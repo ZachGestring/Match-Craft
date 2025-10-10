@@ -14,7 +14,7 @@ intents.message_content = True
 
 class MyClient(commands.Bot):
     def __init__(self, *, intents: discord.Intents):
-        super().__init__(command_prefix="!", intents=intents)
+        super().__init__(command_prefix="", intents=intents)
 
     async def setup_hook(self):
         # Clear all existing commands to start fresh
