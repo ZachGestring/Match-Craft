@@ -14,7 +14,7 @@ class Queue(commands.cog):
         #self.queueConfig=queueConfig
         #self.matchConfig=matchConfig
         #self.state=0
-        #self.queueSize=queueConfig.queueSize
+        self.queueSize=10
         self.bot=bot
         self.queueMembers=[]
         self.matches=[]
@@ -43,10 +43,11 @@ class Queue(commands.cog):
         if ctx.message.content.startswith('/add'):
             self.queueMembers.append(ctx.message.author)
             #need to update database here
-            if len(self.queueMembers>=self.queueSize):
-                self.__startMatch()
-            else:
+            if len(self.queueMembers)<self.queueSize:
                 await ctx.message.channel.send(ctx.message.author + " joined the queue\n" + self.__queueMessage)
+            else:
+                self.__startMatch()
+                
     
     @commands.command(name='remove')
     async def remove_from_queue(self,ctx):

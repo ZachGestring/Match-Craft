@@ -16,7 +16,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 class MyClient(commands.Bot):
-    def __init__(self, *, intents: discord.Intents):
+    def __init__(self):
         super().__init__(command_prefix="", intents=intents)
         super().add_cog(pugQueue.Queue(super()))
         super().add_cog(pugMatch.Match(super()))
