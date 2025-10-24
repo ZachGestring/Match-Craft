@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-
+'''
 # matches should be multithreaded so waiting on input in one queue does not shut down another
 class Match(commands.cog):
     #def __init__(self, participants, queueConfig, matchConfig) -> None:
@@ -31,6 +31,7 @@ class Match(commands.cog):
     def playerCheckIn(self,playerDiscord):
         self.checkInStatus.append(playerDiscord)
     
+    
     @commands.command(name='add')
     def playerReportWinner(self,playerDiscord,playerVote):
         if playerDiscord not in self.votedForWinner:
@@ -44,4 +45,4 @@ class Match(commands.cog):
             self.matches.pop() #update to remove specific match id and get that id from the author
             await ctx.message.channel.send(ctx.message.author+"'s match has ended")
     
-    
+    '''

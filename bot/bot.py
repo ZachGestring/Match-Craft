@@ -1,7 +1,6 @@
 import os
 import sys
 import discord
-import pugMatch
 import pugQueue
 from discord import app_commands
 from discord.ext import commands
@@ -16,14 +15,13 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 class MyClient(commands.Bot):
-    def __init__(self):
-        super().__init__(command_prefix="", intents=intents)
-        super().add_cog(pugQueue.Queue(super()))
-        super().add_cog(pugMatch.Match(super()))
+    def __init__(self, *, intents: discord.Intents):
+        super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # Clear all existing commands to start fresh
         self.tree.clear_commands(guild=None)
+        await self.add_cog(pugQueue.Queue(self))   
+        self.tree.sync
 
     async def on_ready(self):
         print(f'Logged in as {self.user} (ID: {self.user.id})') # type: ignore

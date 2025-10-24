@@ -6,7 +6,7 @@ from discord.ext import commands
 
 # need to multithread so polling for one queue does not block others
 # check on player add if match capacity is passed then pop queue
-class Queue(commands.cog):
+class Queue(commands.Cog):
     #def __init__(self,location,queueConfig, matchConfig) -> None:
     def __init__(self,bot) -> None:
         #self.ID=0 #hash from location+queueConfig+Matchconfig?
@@ -40,20 +40,20 @@ class Queue(commands.cog):
     
     @commands.command(name='add')
     async def add_to_queue(self,ctx):
-        if ctx.message.content.startswith('/add'):
-            self.queueMembers.append(ctx.message.author)
+        if ctx.message.content.startswith('!add'):
+            self.queueMembers.append(ctx.message.author.name)
             #need to update database here
             if len(self.queueMembers)<self.queueSize:
-                await ctx.message.channel.send(ctx.message.author + " joined the queue\n" + self.__queueMessage)
+                await ctx.message.channel.send(ctx.message.author.name + " joined the queue\n" + self.__queueMessage)
             else:
                 self.__startMatch()
                 
     
     @commands.command(name='remove')
     async def remove_from_queue(self,ctx):
-        if ctx.message.content.startswith('/remove'):
-            self.queueMembers.pop(ctx.message.author)
+        if ctx.message.content.startswith('!remove'):
+            self.queueMembers.pop(ctx.message.author.name)
             #need to update database here
-            await ctx.message.channel.send(ctx.message.author + " left the queue\n" + self.__queueMessage)
+            await ctx.message.channel.send(ctx.message.author.name + " left the queue\n" + self.__queueMessage)
 
     
