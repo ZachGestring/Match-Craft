@@ -1,6 +1,7 @@
 import os
 import sys
 import discord
+import pugQueue
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -9,6 +10,7 @@ from utils.db import db
 
 # Load environment variables from .env file
 load_dotenv()
+
 TOKEN = os.getenv('DISCORD_TOKEN')
 # Define the intents your bot needs
 intents = discord.Intents.default()
@@ -19,8 +21,9 @@ class MyClient(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # Clear all existing commands to start fresh
         self.tree.clear_commands(guild=None)
+        await self.add_cog(pugQueue.Queue(self))   
+        self.tree.sync
 
     async def on_ready(self):
         print(f'Logged in as {self.user} (ID: {self.user.id})') # type: ignore
