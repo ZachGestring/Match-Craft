@@ -8,18 +8,24 @@ class Admin(commands.Cog):
         self.adminWhitelistRole=[]
 
 
-    @commands.command(name='addwhitelistrole')
-    def addWhitelistRole(self,ctx):
-        if ctx.message.content.startswith('!addwhitelistrole'):
+    @commands.command(name='addrole')
+    async def addRole(self,ctx):
+        if ctx.message.content.startswith('!addrole'):
+            channel=ctx.message.channel
             for r in ctx.message.role_mentions:
                 self.adminWhitelistRole.append(r)
+            await channel.send("Added roles to pug admin")
+            #channel.send("current roles with pug admin: "+self.adminWhitelistRole)
 
-    @commands.command(name='removewhitelistrole')
-    def addWhitelistRole(self,ctx):
-        if ctx.message.content.startswith('!whitelistrole'):
+    @commands.command(name='removerole')
+    async def addWhitelistRole(self,ctx):
+        if ctx.message.content.startswith('!removerole'):
+            channel=ctx.message.channel
             for r in ctx.message.role_mentions:
                 if r in self.adminWhitelistRole:
                     self.adminWhitelistRole.remove(r)
+            await channel.send("removed roles from pug admin")
+            #channel.send("current roles with pug admin: "+self.adminWhitelistRole)
 
 
 
