@@ -2,7 +2,26 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-#midsemester report on friday
+class Admin(commands.Cog):
+    def __init__(self,bot)-> None:
+        self.bot=bot
+        self.adminWhitelistRole=[]
+
+
+    @commands.command(name='addwhitelistrole')
+    def addWhitelistRole(self,ctx):
+        if ctx.message.content.startswith('!addwhitelistrole'):
+            for r in ctx.message.role_mentions:
+                self.adminWhitelistRole.append(r)
+
+    @commands.command(name='removewhitelistrole')
+    def addWhitelistRole(self,ctx):
+        if ctx.message.content.startswith('!whitelistrole'):
+            for r in ctx.message.role_mentions:
+                if r in self.adminWhitelistRole:
+                    self.adminWhitelistRole.remove(r)
+
+
 
 # need to multithread so polling for one queue does not block others
 # check on player add if match capacity is passed then pop queue

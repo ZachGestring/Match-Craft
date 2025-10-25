@@ -23,6 +23,7 @@ class MyClient(commands.Bot):
     async def setup_hook(self):
         self.tree.clear_commands(guild=None)
         await self.add_cog(pugQueue.Queue(self))   
+        await self.add_cog(pugQueue.Admin(self))  
         self.tree.sync
 
     async def on_ready(self):
