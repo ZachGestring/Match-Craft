@@ -2,6 +2,7 @@ import asyncio
 import asyncpg
 import os
 
+
 class Database:
     def __init__(self):
         self._pool = None

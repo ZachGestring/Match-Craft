@@ -1,31 +1,71 @@
 import discord
+from utils.db import db
+import asyncpg
 from discord import app_commands
 from discord.ext import commands
 
-class Admin(commands.Cog):
+class AdminManagement(commands.Cog):
     def __init__(self,bot)-> None:
         self.bot=bot
         self.adminWhitelistRole=[]
 
+        
 
     @commands.command(name='addrole')
     async def addRole(self,ctx):
         if ctx.message.content.startswith('!addrole'):
             channel=ctx.message.channel
+            outMessage="added admin perms to the following roles:"
+            await db.connect()
             for r in ctx.message.role_mentions:
-                self.adminWhitelistRole.append(r)
-            await channel.send("Added roles to pug admin")
-            #channel.send("current roles with pug admin: "+self.adminWhitelistRole)
+                if r not in self.adminWhitelistRole:
+                    self.adminWhitelistRole.append(r)
+                    outMessage=outMessage+" " + r.name
+                    try:
+                        await db.execute("INSERT INTO administrative_roles (role_id) VALUES ($1);",r.id)
+                    except: 
+                        await channel.send("error adding {id} to the database".format(id=r.id))
+            await db.close()
+            await channel.send(outMessage)
+            
 
     @commands.command(name='removerole')
-    async def addWhitelistRole(self,ctx):
+    async def removeWhitelistRole(self,ctx):
         if ctx.message.content.startswith('!removerole'):
             channel=ctx.message.channel
+            outMessage="removed admin perms from the following roles:"
+            await db.connect()
             for r in ctx.message.role_mentions:
                 if r in self.adminWhitelistRole:
                     self.adminWhitelistRole.remove(r)
-            await channel.send("removed roles from pug admin")
-            #channel.send("current roles with pug admin: "+self.adminWhitelistRole)
+                    outMessage=outMessage+" " + r.name
+                    try:
+                        await db.execute("DELETE FROM administrative_roles WHERE role_id = $1;",r.id)
+                    except: 
+                        await channel.send("error removing {id} from the database".format(id=r.id))
+            await db.close()
+            await channel.send(outMessage)
+
+    @commands.command(name='getadminlist')
+    async def getadminlist(self,ctx):
+        if ctx.message.content.startswith('!getadminlist'):
+            channel=ctx.message.channel
+            outMessageServer="The following roles have admin perms on the server:"
+            for r in self.adminWhitelistRole:
+                    outMessageServer=outMessageServer+" "+ r.name
+            await channel.send(outMessageServer)
+            
+            outMessageDatabase="The following roles have admin perms in the database:"
+            await db.connect()
+            try:
+                result= await db.execute("SELECT role_id FROM administrative_roles;")
+                for x in result:
+                    outMessageDatabase=outMessageDatabase+" "+str(x)
+                await channel.send(outMessageDatabase)
+            except:
+                await channel.send("Failed to access database")
+            await db.close()
+
 
 
 

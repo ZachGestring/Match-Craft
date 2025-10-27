@@ -20,10 +20,14 @@ class MyClient(commands.Bot):
     def __init__(self, *, intents: discord.Intents):
         super().__init__(command_prefix="!", intents=intents)
 
+
     async def setup_hook(self):
         self.tree.clear_commands(guild=None)
+        await db.connect()
+        await db.execute("CREATE TABLE IF NOT EXISTS administrative_roles (role_id BIGINT PRIMARY KEY);")
+        await db.close()
         await self.add_cog(pugQueue.Queue(self))   
-        await self.add_cog(pugQueue.Admin(self))  
+        await self.add_cog(pugQueue.AdminManagement(self))  
         self.tree.sync
 
     async def on_ready(self):
