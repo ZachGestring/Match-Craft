@@ -9,8 +9,6 @@ class AdminManagement(commands.Cog):
         self.bot=bot
         self.adminWhitelistRole=[]
 
-        
-
     @commands.command(name='addrole')
     async def addRole(self,ctx):
         if ctx.message.content.startswith('!addrole'):
@@ -28,7 +26,6 @@ class AdminManagement(commands.Cog):
             await db.close()
             await channel.send(outMessage)
             
-
     @commands.command(name='removerole')
     async def removeWhitelistRole(self,ctx):
         if ctx.message.content.startswith('!removerole'):
@@ -66,8 +63,44 @@ class AdminManagement(commands.Cog):
                 await channel.send("Failed to access database")
             await db.close()
 
+    @commands.command(name='startqueue')
+    async def startqueue(self,ctx,game,maxplayers):
+        if ctx.message.content.startswith('!startqueue'):
+            channel=ctx.message.channel
+            await db.connect()
+            try:
+                await db.execute("INSERT INTO active_queues (queue_id, game, max_players) VALUES ($1, $2, $3);", (channel.id,game,maxplayers))
+                await channel.send("{name} is now a {game} pug channel, [max {maxp} players]".format(name=channel.name, game=game, maxp=maxplayers))
+            except: 
+                await channel.send("error adding new queue [{id}] to active_queues".format(id=channel.id))
+            await db.close()
+    
+    @commands.command(name='stopqueue')
+    async def stopqueue(self,ctx):
+        if ctx.message.content.startswith('!stopqueue'):
+            channel=ctx.message.channel
+            await db.connect()
+            try:
+                await db.execute("DELETE FROM active_queues (queue_id, game, max_players) WHERE queue_id=$1;",channel.id)
+                await channel.send("{name} is no longer a pug channel".format(name=channel.name))
+            except: 
+                await channel.send("error removing queue [{id}] from active_queues".format(id=channel.id))
+            await db.close()
 
+    @commands.command(name='checkqueue')
+    async def checkqueue(self,ctx):
+        if ctx.message.content.startswith('!checkqueue'):
+            channel=ctx.message.channel
+            await db.connect()
+            try:
+                queuedb=await db.execute("SELECT game, max_players FROM active_queues (queue_id, game, max_players) WHERE queue_id=$1;",channel.id)
+                await channel.send("table output: {}",queuedb)
+                #await channel.send("{name} is a {game} pug channel [max {maxp} players]".format(name=channel.name,))
+            except: 
+                await channel.send("there is no active queue in this channel")
+            await db.close()
 
+    
 
 # need to multithread so polling for one queue does not block others
 # check on player add if match capacity is passed then pop queue
