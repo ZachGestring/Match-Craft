@@ -55,9 +55,11 @@ class AdminManagement(commands.Cog):
             outMessageDatabase="The following roles have admin perms in the database:"
             await db.connect()
             try:
-                result= await db.execute("SELECT role_id FROM administrative_roles;")
-                for x in result:
-                    outMessageDatabase=outMessageDatabase+" "+str(x)
+                result = await db.execute("SELECT role_id FROM administrative_roles;")
+                for x in result: 
+                    for a in ctx.guild.roles:
+                        if x['role_id']==a.id:
+                            outMessageDatabase=outMessageDatabase+" "+str(a.name)
                 await channel.send(outMessageDatabase)
             except:
                 await channel.send("Failed to access database")
@@ -69,7 +71,11 @@ class AdminManagement(commands.Cog):
             channel=ctx.message.channel
             await db.connect()
             try:
-                await db.execute("INSERT INTO active_queues (queue_id, game, max_players) VALUES ($1, $2, $3);", (channel.id,game,maxplayers))
+                await channel.send("attempting to access database")
+                await channel.send("name: {name}, game: {game}, max players: {maxp}".format(name=channel.name, game=game, maxp=maxplayers))
+                #await db.execute("INSERT INTO active_queues (queue_id) VALUES ($1);", (channel.id))
+                await db.execute("INSERT INTO active_queues VALUES ($1, $2, $3);", (channel.id , str(game), int(maxplayers)))
+                await channel.send("database access attempt successful")
                 await channel.send("{name} is now a {game} pug channel, [max {maxp} players]".format(name=channel.name, game=game, maxp=maxplayers))
             except: 
                 await channel.send("error adding new queue [{id}] to active_queues".format(id=channel.id))
@@ -81,7 +87,7 @@ class AdminManagement(commands.Cog):
             channel=ctx.message.channel
             await db.connect()
             try:
-                await db.execute("DELETE FROM active_queues (queue_id, game, max_players) WHERE queue_id=$1;",channel.id)
+                await db.execute("DELETE FROM active_queues WHERE queue_id=$1;",channel.id)
                 await channel.send("{name} is no longer a pug channel".format(name=channel.name))
             except: 
                 await channel.send("error removing queue [{id}] from active_queues".format(id=channel.id))
@@ -93,14 +99,21 @@ class AdminManagement(commands.Cog):
             channel=ctx.message.channel
             await db.connect()
             try:
-                queuedb=await db.execute("SELECT game, max_players FROM active_queues (queue_id, game, max_players) WHERE queue_id=$1;",channel.id)
-                await channel.send("table output: {}",queuedb)
+                vals="queuedb output:"
+                await channel.send("attempting to access database")
+                queuedb=await db.execute("SELECT * FROM active_queues;")
+                await channel.send("database access attempt successful")
+                for x in queuedb:
+                    vals=vals+" "+str(x)
+                await channel.send("string built successfully")
+                await channel.send(vals)
+                #queuedb=await db.execute("SELECT game, max_players FROM active_queues (queue_id, game, max_players) WHERE queue_id=$1;",channel.id)
+                
                 #await channel.send("{name} is a {game} pug channel [max {maxp} players]".format(name=channel.name,))
             except: 
-                await channel.send("there is no active queue in this channel")
+                #await channel.send("there is no active queue in this channel")
+                await channel.send("failed to access active_queues relation")
             await db.close()
-
-    
 
 # need to multithread so polling for one queue does not block others
 # check on player add if match capacity is passed then pop queue
