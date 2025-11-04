@@ -23,9 +23,6 @@ class MyClient(commands.Bot):
 
     async def setup_hook(self):
         self.tree.clear_commands(guild=None)
-        await db.connect()
-        #await db.execute("CREATE TABLE IF NOT EXISTS administrative_roles (role_id BIGINT PRIMARY KEY);")
-        await db.close()
         await self.add_cog(pugQueue.Queue(self))   
         await self.add_cog(pugQueue.AdminManagement(self))  
         self.tree.sync

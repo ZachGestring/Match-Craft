@@ -9,9 +9,9 @@ class AdminManagement(commands.Cog):
         self.bot=bot
         self.adminWhitelistRole=[]
 
-    @commands.command(name='addrole')
+    @commands.command(name='addadminrole')
     async def addRole(self,ctx):
-        if ctx.message.content.startswith('!addrole'):
+        if ctx.message.content.startswith('!addadminrole'):
             channel=ctx.message.channel
             outMessage="added admin perms to the following roles:"
             await db.connect()
@@ -26,9 +26,9 @@ class AdminManagement(commands.Cog):
             await db.close()
             await channel.send(outMessage)
             
-    @commands.command(name='removerole')
+    @commands.command(name='removeadminrole')
     async def removeWhitelistRole(self,ctx):
-        if ctx.message.content.startswith('!removerole'):
+        if ctx.message.content.startswith('!removeadminrole'):
             channel=ctx.message.channel
             outMessage="removed admin perms from the following roles:"
             await db.connect()
@@ -71,12 +71,8 @@ class AdminManagement(commands.Cog):
             channel=ctx.message.channel
             await db.connect()
             try:
-                await channel.send("attempting to access database")
-                await channel.send("name: {name}, game: {game}, max players: {maxp}".format(name=channel.name, game=game, maxp=maxplayers))
-                #await db.execute("INSERT INTO active_queues (queue_id) VALUES ($1);", (channel.id))
-                await db.execute("INSERT INTO active_queues VALUES ($1, $2, $3);", (channel.id , str(game), int(maxplayers)))
-                await channel.send("database access attempt successful")
-                await channel.send("{name} is now a {game} pug channel, [max {maxp} players]".format(name=channel.name, game=game, maxp=maxplayers))
+                await db.execute("INSERT INTO active_queues VALUES ($1, $2, $3);", channel.id, str(game), int(maxplayers))
+                await channel.send("{name} is now a {game} pug channel [max {maxp} players]".format(name=channel.name, game=game, maxp=maxplayers))
             except: 
                 await channel.send("error adding new queue [{id}] to active_queues".format(id=channel.id))
             await db.close()
