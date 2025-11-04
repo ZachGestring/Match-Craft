@@ -95,17 +95,11 @@ class AdminManagement(commands.Cog):
             channel=ctx.message.channel
             await db.connect()
             try:
-                vals="queuedb output:"
-                await channel.send("attempting to access database")
+                vals="active queues in DB:\n"
                 queuedb=await db.execute("SELECT * FROM active_queues;")
-                await channel.send("database access attempt successful")
                 for x in queuedb:
-                    vals=vals+" "+str(x)
-                await channel.send("string built successfully")
+                    vals=vals+"  - queue_id: " + str(x['queue_id'])+", game: " + str(x['game'])+", max_players: " + str(x['max_players'])+"\n"
                 await channel.send(vals)
-                #queuedb=await db.execute("SELECT game, max_players FROM active_queues (queue_id, game, max_players) WHERE queue_id=$1;",channel.id)
-                
-                #await channel.send("{name} is a {game} pug channel [max {maxp} players]".format(name=channel.name,))
             except: 
                 #await channel.send("there is no active queue in this channel")
                 await channel.send("failed to access active_queues relation")
@@ -121,19 +115,41 @@ class Queue(commands.Cog):
         #self.queueConfig=queueConfig
         #self.matchConfig=matchConfig
         #self.state=0
-        self.queueSize=10
         self.bot=bot
-        self.queueMembers=[]
-        self.matches=[]
+        self.queueDict={}
+
         #self.captainPriority=queueConfig.captainPriority
         #self.description=queueConfig.description
 
-    def __queueMessage(self):
+    @commands.command(name='prepqueuedict')
+    async def prepqueuedict(self,ctx):
+        if ctx.message.content.startswith('!prepqueuedict'):
+            await db.connect()
+            activeQueues= await db.execute("SELECT * FROM active_queues;")
+            await db.close()
+            for active in activeQueues:
+                self.queueDict.update({
+                    active['queue_id']:{
+                        "game" : active['game'],
+                        "max_players" : active['max_players'],
+                        "player_queue" : []
+                        }
+                    })
+            await ctx.message.channel.send("dictionary setup complete")
+
+    @commands.command(name='printqueuedict')
+    async def printqueuedict(self,ctx):
+        if ctx.message.content.startswith('!printqueuedict'):
+            channel=ctx.message.channel
+
+
+
+    def __queueMessage(self,channel):
         # Delete previous message? await delete_original_response()
         queueMessage="("
-        for member in self.queueMembers:
+        for member in self.queueDict[channel.id]["player_queue"]:
             queueMessage=queueMessage+member+","
-        queueMessage=queueMessage + ")[ "+len(self.queueMembers)+"/"+self.queueSize+"]"
+        queueMessage=queueMessage + ")[ "+str(len(self.queueDict[channel.id]["player_queue"]))+"/"+str(self.queueDict[channel.id]["max_players"])+"]"
         return queueMessage
     
     def __startMatch(self):
@@ -148,19 +164,28 @@ class Queue(commands.Cog):
     @commands.command(name='add')
     async def add_to_queue(self,ctx):
         if ctx.message.content.startswith('!add'):
-            self.queueMembers.append(ctx.message.author.name)
-            #need to update database here
-            if len(self.queueMembers)<self.queueSize:
-                await ctx.message.channel.send(ctx.message.author.name + " joined the queue\n" + self.__queueMessage)
+            channel=ctx.message.channel
+            if channel.id in self.queueDict.keys():
+                self.queueDict[channel.id]["player_queue"].append(ctx.message.author.name)
+                if len(self.queueDict[channel.id]["player_queue"])<self.queueDict[channel.id]["max_players"]:
+                    await ctx.message.channel.send(ctx.message.author.name + " joined the queue\n" + self.__queueMessage(channel))
+                else:
+                    self.__startMatch()
             else:
-                self.__startMatch()
+                await ctx.message.channel.send("cannot add player to non-queue channel")
                 
-    
     @commands.command(name='remove')
     async def remove_from_queue(self,ctx):
         if ctx.message.content.startswith('!remove'):
-            self.queueMembers.pop(ctx.message.author.name)
-            #need to update database here
-            await ctx.message.channel.send(ctx.message.author.name + " left the queue\n" + self.__queueMessage)
+            channel=ctx.message.channel
+            if channel.id in self.queueDict.keys():
+                if(ctx.message.author.name in self.queueDict[channel.id]["player_queue"]):
+                    self.queueDict[channel.id]["player_queue"].remove(ctx.message.author.name)
+                    #need to update database here
+                    await ctx.message.channel.send(ctx.message.author.name + " left the queue\n" + self.__queueMessage(channel))
+                else: 
+                    await ctx.message.channel.send("you are not in this queue")
+            else:
+                await ctx.message.channel.send("cannot remove player from non-queue channel")
 
     
