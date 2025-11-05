@@ -11,8 +11,7 @@ class AdminManagement(commands.Cog):
         self.bot=bot
         self.adminWhitelistRole=[]
 
-
-    @discord.app_commands.command()
+    @app_commands.command()
     async def addadminrole(self, interaction: discord.Interaction, role: discord.Role):
         #channel=ctx.message.channel
         outMessage="added admin perms to the following roles:"
@@ -28,7 +27,7 @@ class AdminManagement(commands.Cog):
         await db.close()
         await interaction.channel.send(outMessage)
             
-    @discord.app_commands.command()
+    @app_commands.command()
     async def removeadminrole(self, interaction: discord.Interaction, role: discord.Role):
         channel=interaction.channel
         outMessage="removed admin perms from the following roles:"
@@ -43,7 +42,7 @@ class AdminManagement(commands.Cog):
         await db.close()
         await channel.send(outMessage)
 
-    @discord.app_commands.command()
+    @app_commands.command()
     async def getadminlist(interaction: discord.Interaction,self):
         channel=interaction.message.channel
         outMessageServer="The following roles have admin perms on the server:"
@@ -64,10 +63,10 @@ class AdminManagement(commands.Cog):
             await channel.send("Failed to access database")
         await db.close()
 
-    @discord.app_commands.command()
+    @app_commands.command()
     @app_commands.describe(game='The game the queue is for', maxplayers='The number of players needed for a match')
-    async def startqueue(self,ctx,game: str, maxplayers: int):
-        channel=ctx.message.channel
+    async def startqueue(self, interaction: discord.Interaction, game: str, maxplayers: int):
+        channel=interaction.channel
         await db.connect()
         try:
             await db.execute("INSERT INTO active_queues VALUES ($1, $2, $3);", channel.id, str(game), int(maxplayers))
@@ -76,9 +75,9 @@ class AdminManagement(commands.Cog):
             await channel.send("error adding new queue [{id}] to active_queues".format(id=channel.id))
         await db.close()
     
-    @discord.app_commands.command()
-    async def stopqueue(self,ctx):
-        channel=ctx.message.channel
+    @app_commands.command()
+    async def stopqueue(self, interaction: discord.Interaction):
+        channel=interaction.channel
         await db.connect()
         try:
             await db.execute("DELETE FROM active_queues WHERE queue_id=$1;",channel.id)
@@ -87,9 +86,9 @@ class AdminManagement(commands.Cog):
             await channel.send("error removing queue [{id}] from active_queues".format(id=channel.id))
         await db.close()
 
-    @discord.app_commands.command()
-    async def checkqueue(self,ctx):
-        channel=ctx.message.channel
+    @app_commands.command()
+    async def checkqueue(self, interaction: discord.Interaction):
+        channel=interaction.channel
         await db.connect()
         try:
             vals="active queues in DB:\n"
@@ -111,8 +110,8 @@ class Queue(commands.Cog):
         self.queueDict={}
         self.inMatch={}    #on match start, add all participating players here with their associated queue
 
-    @discord.app_commands.command()
-    async def prepqueuedict(self,ctx):
+    @app_commands.command()
+    async def prepqueuedict(self, interaction: discord.Interaction):
         await db.connect()
         activeQueues= await db.execute("SELECT * FROM active_queues;")
         await db.close()
@@ -124,11 +123,11 @@ class Queue(commands.Cog):
                     "player_queue" : []
                     }
                 })
-        await ctx.message.channel.send("dictionary setup complete")
+        await interaction.channel.send("dictionary setup complete")
 
-    @discord.app_commands.command()
-    async def printqueuedict(self,ctx):
-        channel=ctx.message.channel
+    @app_commands.command()
+    async def printqueuedict(self, interaction: discord.Interaction):
+        channel=interaction.channel
 
     def __queueMessage(self,channel):
         # Delete previous message? await delete_original_response()
@@ -150,37 +149,41 @@ class Queue(commands.Cog):
         #self.matches.append(Match(matchParticipants,self.queueConfig,self.matchConfig))
         #update queue database
     
-    @discord.app_commands.command()
-    async def add(self,ctx):
-        channel=ctx.message.channel
+    @app_commands.command()
+    async def add(self, interaction: discord.Interaction):
+        channel=interaction.channel
+        name=interaction.user.name
         if channel.id in self.queueDict.keys():
-            self.queueDict[channel.id]["player_queue"].append(ctx.message.author.name)
+            self.queueDict[channel.id]["player_queue"].append(name)
             if len(self.queueDict[channel.id]["player_queue"])<self.queueDict[channel.id]["max_players"]:
-                await ctx.message.channel.send(ctx.message.author.name + " joined the queue\n" + self.__queueMessage(channel))
+                await channel.send(name + " joined the queue\n" + self.__queueMessage(channel))
             else:
                 self.__startMatch()
         else:
-            await ctx.message.channel.send("cannot add player to non-queue channel")
+            await channel.send("cannot add player to non-queue channel")
                 
-    @discord.app_commands.command()
-    async def remove(self,ctx):
-        channel=ctx.message.channel
+    @app_commands.command()
+    async def remove(self, interaction: discord.Interaction):
+        channel=interaction.channel
+        name=interaction.user.name
         if channel.id in self.queueDict.keys():
-            if(ctx.message.author.name in self.queueDict[channel.id]["player_queue"]):
-                self.queueDict[channel.id]["player_queue"].remove(ctx.message.author.name)
+            if(name in self.queueDict[channel.id]["player_queue"]):
+                self.queueDict[channel.id]["player_queue"].remove(name)
                 #need to update database here
-                await ctx.message.channel.send(ctx.message.author.name + " left the queue\n" + self.__queueMessage(channel))
+                await channel.send(name + " left the queue\n" + self.__queueMessage(channel))
             else: 
-                await ctx.message.channel.send("you are not in this queue")
+                await channel.send("you are not in this queue")
         else:
-            await ctx.message.channel.send("cannot remove player from non-queue channel")
+            await channel.send("cannot remove player from non-queue channel")
 
-    @discord.app_commands.command()
-    async def queuestatus(self,ctx):
-        channel=ctx.message.channel
+    @app_commands.command()
+    async def queuestatus(self, interaction: discord.Interaction):
+        channel=interaction.channel
         if channel.id in self.queueDict.keys():
-            await ctx.message.channel.send(self.__queueMessage(channel))
+            await channel.send(self.__queueMessage(channel))
         else:
-            await ctx.message.channel.send("cannot check queue in non-queue channel")
+            await channel.send("cannot check queue in non-queue channel")
 
-    
+async def setup(bot: commands.Bot)-> None:
+    await bot.add_cog(AdminManagement(bot))
+    await bot.add_cog(Queue(bot))
