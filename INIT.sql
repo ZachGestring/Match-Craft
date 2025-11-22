@@ -5,7 +5,8 @@ CREATE TABLE administrative_roles (
 CREATE TABLE active_queues (
     queue_id BIGINT PRIMARY KEY,
     game VARCHAR(50),
-    max_players INT
+    max_players INT,
+    queue_message_id BIGINT
 );
 
 CREATE TABLE match_history (

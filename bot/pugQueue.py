@@ -4,12 +4,32 @@ from utils.db import db
 from discord import app_commands,ui
 from discord.ext import commands
 
+#button template from discord.py api
+class MyActionRow(ui.ActionRow):
+    @ui.button(label='Add')
+    async def add(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message('You clicked add!')
+
+    @ui.button(label='Remove')
+    async def remove(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message('You clicked remove!')
+
 #test with dpytest
 class EmbedView(ui.LayoutView):
     def __init__(self, *, myText: str) -> None:
         super().__init__()
         self.text = ui.TextDisplay(myText)
         container = ui.Container(self.text, accent_color=discord.Color.red())
+        self.add_item(container)
+
+class EmbedPugView(ui.LayoutView):
+    def __init__(self, *, myQueueName: str, myText: str) -> None:
+        super().__init__()
+        self.queueName = ui.TextDisplay(myQueueName)
+        self.text = ui.TextDisplay(myText)
+        self.sep=ui.Separator(visible=True)
+        self.row=MyActionRow()
+        container = ui.Container(self.queueName,self.sep,self.text,self.sep,self.row, accent_color=discord.Color.red())
         self.add_item(container)
 
 # need to multithread so polling for one queue does not block others
@@ -36,7 +56,7 @@ class Queue(commands.Cog):
                     "game" : active['game'],
                     "max_players" : active['max_players'],
                     "player_queue" : [],
-                    "queue_status_message": [],
+                    #"queue_message_id": active['queue_message_id'],
                     "active_matches" : []
                     }
                 })
@@ -100,14 +120,16 @@ class Queue(commands.Cog):
 
     async def startqueue(self, interaction: discord.Interaction, game: str, maxplayers: int):
         channel=interaction.channel
-        try:
-            await db.connect()
-            await db.execute("INSERT INTO active_queues VALUES ($1, $2, $3);", channel.id, str(game), int(maxplayers))
-            await interaction.response.send_message(view=EmbedView(myText="{name} is now a {game} pug channel [max {maxp} players]".format(name=channel.name, game=game, maxp=maxplayers)))
-            await db.close()
-        except: 
-            await interaction.response.send_message(view=EmbedView(myText="error adding new queue [{id}] to active_queues".format(id=channel.id)))
-        
+        if channel.id not in self.queueDict.keys():
+            try:
+                await db.connect()
+                initMessage = await interaction.response.send_message(view=EmbedView(myText="{name} is now a {game} pug channel [max {maxp} players]".format(name=channel.name, game=game, maxp=maxplayers)))
+                await db.execute("INSERT INTO active_queues VALUES ($1, $2, $3);", channel.id, str(game), int(maxplayers),initMessage.message_id)
+                await db.close()
+            except: 
+                await interaction.response.send_message(view=EmbedView(myText="error adding new queue [{id}] to active_queues".format(id=channel.id)))
+        else:
+            await interaction.response.send_message(view=EmbedView(myText="A queue already exists in this channel"))
     @app_commands.command()
     async def stopqueue(self, interaction: discord.Interaction):
         channel=interaction.channel
@@ -166,7 +188,7 @@ class Queue(commands.Cog):
                 output=name + " joined the queue\n" + self.__queueMessage(channel)
             else:
                 self.__startMatch()
-        await interaction.response.send_message(view=EmbedView(myText=output))
+        await interaction.response.send_message(view=EmbedPugView(myQueueName=self.queueDict[channel.id]["game"],myText=output))
                 
     @app_commands.command()
     async def remove(self, interaction: discord.Interaction):
@@ -179,7 +201,7 @@ class Queue(commands.Cog):
                 output=name + " left the queue\n" + self.__queueMessage(channel)
             else: 
                 output="you are not in this queue"
-        await interaction.response.send_message(view=EmbedView(myText=output))
+        await interaction.response.send_message(view=EmbedPugView(myQueueName=self.queueDict[channel.id]["game"],myText=output))
 
     @app_commands.command()
     async def queuestatus(self, interaction: discord.Interaction):
