@@ -33,13 +33,20 @@ class Queue(commands.Cog):
                     "active_matches" : []
                     }
                 })
+            
     @commands.Cog.listener(name='on_message')  
     async def repostQueueMessage(self,message):
         channel=message.channel
         if channel.id in self.queueDict.keys() and not (message.author == self.bot.user) :
+            #async for mes in channel.history(limit=5):
+            #    if mes.author == self.bot.user:
+            #         await mes.delete()
+
             temp= await channel.fetch_message(self.queueDict[channel.id]["queue_message_id"])
             await temp.delete()
-            initMessage = await channel.send(view=EmbedView(myText="{name} is now a {game} pug channel [max {maxp} players]".format(name=channel.name, game=self.queueDict[channel.id]["game"], maxp=self.queueDict[channel.id]["max_players"])))
+            #await channel.send(view=EmbedPugView(myQueueName=self.queueDict[channel.id]["game"],myText=self.queueMessage,myQueue=self))
+            initMessage = await channel.send(view=EmbedView(myText="{game} PUGs\n\n{message}\n\n/add to join queue\n/remove to leave queue".format(game=self.queueDict[channel.id]["game"],message=self.queueMessage(channel))))
+            #initMessage = await channel.send(view=EmbedView(myText="{name} is now a {game} pug channel [max {maxp} players]".format(name=channel.name, game=self.queueDict[channel.id]["game"], maxp=self.queueDict[channel.id]["max_players"])))
             self.queueDict[channel.id]["queue_message_id"]=initMessage.id
 
     #####ADMIN_COMMANDS################################################################################
@@ -112,17 +119,19 @@ class Queue(commands.Cog):
                         "active_matches" : []
                     }
                 })
-                initMessage = await interaction.response.send_message(view=EmbedView(myText="{name} is now a {game} pug channel [max {maxp} players]".format(name=channel.name, game=game, maxp=maxplayers)))
+                initMessage = await interaction.response.send_message(view=EmbedView(myText="{game} PUGs\n\n{message}\n\n/add to join queue\n/remove to leave queue".format(game=game,message=self.queueMessage(channel))))
+                #initMessage = await interaction.response.send_message(view=EmbedView(myText="{name} is now a {game} pug channel [max {maxp} players]".format(name=channel.name, game=game, maxp=maxplayers)))
                 #tempView=EmbedPugView(myQueueName=game,myText=self.queueMessage,myQueue=self)
                 #initMessage = await channel.send(view=tempView)
                 #initMessage = await channel.send("temp")
                 #initMessage = await interaction.response.send_message(view=EmbedPugView(myQueueName=game,myText=self.queueMessage,myQueue=self))
-                # interaction.original_response
+                #await interaction.response.send_message(view=EmbedPugView(myQueueName=game,myText=self.queueMessage,myQueue=self))
                 self.queueDict[channel.id]["queue_message_id"]= initMessage.message_id
                 await db.connect()
                 await db.execute("INSERT INTO active_queues VALUES ($1, $2, $3, $4);", channel.id, str(game), int(maxplayers),initMessage.message_id)
+                #await db.execute("INSERT INTO active_queues VALUES ($1, $2, $3);", channel.id, str(game), int(maxplayers))
                 await db.close()
-                await interaction.edit_original_response(view=EmbedPugView(myQueueName=game,myText=self.queueMessage,myQueue=self))
+                #await interaction.edit_original_response(view=EmbedPugView(myQueueName=game,myText=self.queueMessage,myQueue=self))
             #except: 
                 #await interaction.response.send_message(view=EmbedView(myText="error adding new queue [{id}] to active_queues".format(id=channel.id)))
         else:
@@ -157,7 +166,6 @@ class Queue(commands.Cog):
             await interaction.response.send_message(view=EmbedView(myText="failed to access active_queues relation"))
     #########QUEUE_COMMANDS###################    
     def queueMessage(self,channel):
-        # Delete previous message? await delete_original_response()
         queueMessage="("
         for x in range (0,len(self.queueDict[channel.id]["player_queue"])):
             queueMessage=queueMessage+self.queueDict[channel.id]["player_queue"][x]
@@ -184,11 +192,14 @@ class Queue(commands.Cog):
         name=interaction.user.name
         output="cannot add player to non-queue channel"
         if channel.id in self.queueDict.keys():
-            self.queueDict[channel.id]["player_queue"].append(name)
-            if len(self.queueDict[channel.id]["player_queue"])<self.queueDict[channel.id]["max_players"]:
-                output=name + " joined the queue\n" + self.queueMessage(channel)
+            if name not in self.queueDict[channel.id]["player_queue"]:
+                self.queueDict[channel.id]["player_queue"].append(name)
+                if len(self.queueDict[channel.id]["player_queue"])<self.queueDict[channel.id]["max_players"]:
+                    output=name + " joined the queue\n" + self.queueMessage(channel)
+                else:
+                    self.__startMatch()
             else:
-                self.__startMatch()
+                output="you are already in the queue\n" + self.queueMessage(channel)
         await interaction.response.send_message(view=EmbedPugView(myQueueName=self.queueDict[channel.id]["game"],myText=output,myQueue=self))
                 
     @app_commands.command()
@@ -249,7 +260,7 @@ class MyActionRow(ui.ActionRow):
 #test with dpytest
 class EmbedView(ui.LayoutView):
     def __init__(self, *, myText: str) -> None:
-        super().__init__()
+        super().__init__(timeout=None)
         self.text = ui.TextDisplay(myText)
         container = ui.Container(self.text, accent_color=discord.Color.red())
         self.add_item(container)
