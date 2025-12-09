@@ -6,14 +6,14 @@ from discord import app_commands,ui
 from discord.ext import commands
 
 class Queue(commands.Cog):
-    #def __init__(self,location,queueConfig, matchConfig) -> None:
     def __init__(self,bot) -> None:
         self.bot=bot
         self.adminWhitelistRole=[]
         self.queueDict={}
-        self.inMatch={}    #on match start, add all participating players here with their associated queue
+        self.inMatch={}
 
     #async database setup
+    #populate admin whitelist and queue dictionary with values from the database
     async def cog_load(self):
         await db.connect()
         activeQueues= await db.execute("SELECT * FROM active_queues;")
@@ -31,32 +31,31 @@ class Queue(commands.Cog):
                     "active_matches" : []
                     }
                 })
-            
+
+    #Deletes the original queue message and reposts it any time a user posts in the queue channel so it is always visibile     
     @commands.Cog.listener(name='on_message')  
     async def repostQueueMessage(self,message):
         channel=message.channel
         if channel.id in self.queueDict.keys() and not (message.author == self.bot.user) :
-            #async for mes in channel.history(limit=5):
-            #    if mes.author == self.bot.user:
-            #         await mes.delete()
-
             temp= await channel.fetch_message(self.queueDict[channel.id]["queue_message_id"])
             await temp.delete()
-            #await channel.send(view=EmbedPugView(myQueueName=self.queueDict[channel.id]["game"],myText=self.queueMessage,myQueue=self))
+            #await channel.send(view=EmbedPugView(myQueueName=self.queueDict[channel.id]["game"],myText=self.queueMessage,myQueue=self)) #does not work because view is not serializable
             initMessage = await channel.send(view=EmbedView(myText="{game} PUGs\n\n{message}\n\n/add to join queue\n/remove to leave queue".format(game=self.queueDict[channel.id]["game"],message=self.queueMessage(channel))))
-            #initMessage = await channel.send(view=EmbedView(myText="{name} is now a {game} pug channel [max {maxp} players]".format(name=channel.name, game=self.queueDict[channel.id]["game"], maxp=self.queueDict[channel.id]["max_players"])))
             self.queueDict[channel.id]["queue_message_id"]=initMessage.id
 
     #####ADMIN_COMMANDS################################################################################
+    
+    #check if the specified user is whitelisted or has discord admin perms
     def __verifyAdmin(self, user):
         for role in user.roles:
             if role in self.adminWhitelistRole or role.permissions.administrator:
                 return True
         return False
     
+    #Add the specified role to the pug admin whitelist
     @app_commands.command()
     async def addadminrole(self, interaction: discord.Interaction, role: discord.Role):
-        if(self.__verifyAdmin(interaction.user)):
+        if(await self.__verifyAdmin(interaction.user)):
             outMessage=role.name + " already has pug admin perms"
             if role not in self.adminWhitelistRole:
                 self.adminWhitelistRole.append(role)
@@ -71,9 +70,10 @@ class Queue(commands.Cog):
         else:
             await interaction.response.send_message(view=EmbedView(myText="This command is reserved for administrators"))
             
+    #Remove the specified role from the pug admin whitelist
     @app_commands.command()
     async def removeadminrole(self, interaction: discord.Interaction, role: discord.Role):
-        if(self.__verifyAdmin(interaction.user)):
+        if(await self.__verifyAdmin(interaction.user)):
             outMessage=role.name + " does not have pug admin perms"
             if role in self.adminWhitelistRole:
                 self.adminWhitelistRole.remove(role)
@@ -88,12 +88,13 @@ class Queue(commands.Cog):
         else:
             await interaction.response.send_message(view=EmbedView(myText="This command is reserved for administrators"))
 
+    #display a message containing all the whitelisted roles for pug administration
     @app_commands.command()
     async def getadminlist(self,interaction: discord.Interaction):
         outMessageServer="The following roles have admin perms on the server:"
         for r in self.adminWhitelistRole:
             for a in interaction.guild.roles:
-                if r==a.id:
+                if r==a.id or a.permissions.administrator:
                     outMessageServer=outMessageServer+" "+str(a.name) 
         outMessageServer=outMessageServer+"\n\n"
         #await interaction.response.send_message(view=EmbedView(myText=outMessageServer))
@@ -111,13 +112,14 @@ class Queue(commands.Cog):
         except:
             await interaction.response.send_message(view=EmbedView(myText="Failed to access database"))
         
+    #Starts a queue if one does not exist in the current channel
     @app_commands.command()
     @app_commands.describe(game='The game the queue is for', maxplayers='The number of players needed for a match')
     async def startqueue(self, interaction: discord.Interaction, game: str, maxplayers: int):
-        if(self.__verifyAdmin(interaction.user)):
+        if(await self.__verifyAdmin(interaction.user)):
             channel=interaction.channel
             if channel.id not in self.queueDict.keys():
-                #try:
+                #try:    
                     self.queueDict.update({
                         channel.id:{
                             "game" : game,
@@ -128,18 +130,12 @@ class Queue(commands.Cog):
                         }
                     })
                     initMessage = await interaction.response.send_message(view=EmbedView(myText="{game} PUGs\n\n{message}\n\n/add to join queue\n/remove to leave queue".format(game=game,message=self.queueMessage(channel))))
-                    #initMessage = await interaction.response.send_message(view=EmbedView(myText="{name} is now a {game} pug channel [max {maxp} players]".format(name=channel.name, game=game, maxp=maxplayers)))
-                    #tempView=EmbedPugView(myQueueName=game,myText=self.queueMessage,myQueue=self)
-                    #initMessage = await channel.send(view=tempView)
-                    #initMessage = await channel.send("temp")
                     #initMessage = await interaction.response.send_message(view=EmbedPugView(myQueueName=game,myText=self.queueMessage,myQueue=self))
                     #await interaction.response.send_message(view=EmbedPugView(myQueueName=game,myText=self.queueMessage,myQueue=self))
                     self.queueDict[channel.id]["queue_message_id"]= initMessage.message_id
                     await db.connect()
                     await db.execute("INSERT INTO active_queues VALUES ($1, $2, $3, $4);", channel.id, str(game), int(maxplayers),initMessage.message_id)
-                    #await db.execute("INSERT INTO active_queues VALUES ($1, $2, $3);", channel.id, str(game), int(maxplayers))
                     await db.close()
-                    #await interaction.edit_original_response(view=EmbedPugView(myQueueName=game,myText=self.queueMessage,myQueue=self))
                 #except: 
                     #await interaction.response.send_message(view=EmbedView(myText="error adding new queue [{id}] to active_queues".format(id=channel.id)))
             else:
@@ -147,10 +143,10 @@ class Queue(commands.Cog):
         else:
             await interaction.response.send_message(view=EmbedView(myText="This command is reserved for administrators"))
 
-
+    #Stops the queue in the current channel if one exists
     @app_commands.command()
     async def stopqueue(self, interaction: discord.Interaction):
-        if(self.__verifyAdmin(interaction.user)):
+        if(await self.__verifyAdmin(interaction.user)):
             channel=interaction.channel
         #try:
             mes = await channel.fetch_message(self.queueDict[channel.id]["queue_message_id"])
@@ -165,6 +161,7 @@ class Queue(commands.Cog):
         else:
             await interaction.response.send_message(view=EmbedView(myText="This command is reserved for administrators"))
         
+    #displays a message containing all the active queues for debugging purposes
     @app_commands.command()
     async def checkqueue(self, interaction: discord.Interaction):
         try:
@@ -176,9 +173,11 @@ class Queue(commands.Cog):
                 vals=vals+"  - queue_id: " + str(x['queue_id'])+", game: " + str(x['game'])+", max_players: " + str(x['max_players'])+"\n"
             await interaction.response.send_message(view=EmbedView(myText=vals))
         except: 
-            #await channel.send("there is no active queue in this channel")
             await interaction.response.send_message(view=EmbedView(myText="failed to access active_queues relation"))
+
     #########QUEUE_COMMANDS###################    
+    
+    #returns a string that lists how many players players are in the requested queue
     def queueMessage(self,channel):
         queueMessage="("
         for x in range (0,len(self.queueDict[channel.id]["player_queue"])):
@@ -188,6 +187,7 @@ class Queue(commands.Cog):
         queueMessage=queueMessage + ")["+str(len(self.queueDict[channel.id]["player_queue"]))+"/"+str(self.queueDict[channel.id]["max_players"])+"]"
         return queueMessage
     
+    #initial outline for match flow
     def __startMatch(self,channel):
         #announce match start
         matchParticipants=[]
@@ -200,6 +200,7 @@ class Queue(commands.Cog):
         #captain voting and team selection
         #outcome reporting
      
+    #adds the player to the queue 
     @app_commands.command()
     async def add(self, interaction: discord.Interaction):
         channel=interaction.channel
@@ -215,7 +216,8 @@ class Queue(commands.Cog):
             else:
                 output="you are already in the queue\n" + self.queueMessage(channel)
         await interaction.response.send_message(view=EmbedPugView(myQueueName=self.queueDict[channel.id]["game"],myText=output,myQueue=self))
-                
+
+    #removes the player from the queue
     @app_commands.command()
     async def remove(self, interaction: discord.Interaction):
         channel=interaction.channel
@@ -229,6 +231,7 @@ class Queue(commands.Cog):
                 output="you are not in this queue"
         await interaction.response.send_message(view=EmbedPugView(myQueueName=self.queueDict[channel.id]["game"],myText=output,myQueue=self))
 
+    #displays how many players are in the queue
     @app_commands.command()
     async def queuestatus(self, interaction: discord.Interaction):
         channel=interaction.channel
@@ -237,15 +240,15 @@ class Queue(commands.Cog):
             output=self.queueMessage(channel)
         await interaction.response.send_message(view=EmbedView(myText=output))
 
-
 #button template from discord.py api
 class MyActionRow(ui.ActionRow):
     def __init__(self, queue: Queue) -> None:
         super().__init__()
         self.queue=queue
+    
+    #Adds player to the queue when the press the add button
     @ui.button(label='Add', style=discord.ButtonStyle.green)
     async def add(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # await interaction.response.send_message('You clicked add!')
         channel=interaction.channel
         name=interaction.user.name
         output="cannot add player to non-queue channel"
@@ -257,9 +260,9 @@ class MyActionRow(ui.ActionRow):
                 self.queue.__startMatch()
         await interaction.response.send_message(view=EmbedPugView(myQueueName=self.queue.queueDict[channel.id]["game"],myText=output,myQueue=self.queue))
 
+    #Removes the player from the queue when they press the remove button
     @ui.button(label='Remove',style=discord.ButtonStyle.red)
     async def remove(self, interaction: discord.Interaction, button: discord.ui.Button):
-        #await interaction.response.send_message('You clicked remove!')
         channel=interaction.channel
         name=interaction.user.name
         output="cannot remove player from non-queue channel"
@@ -271,7 +274,7 @@ class MyActionRow(ui.ActionRow):
                 output="you are not in this queue"
         await interaction.response.send_message(view=EmbedPugView(myQueueName=self.queue.queueDict[channel.id]["game"],myText=output,myQueue=self.queue))
 
-#test with dpytest
+#standard embed view for sending messages with the bot
 class EmbedView(ui.LayoutView):
     def __init__(self, *, myText: str) -> None:
         super().__init__(timeout=None)
@@ -279,6 +282,7 @@ class EmbedView(ui.LayoutView):
         container = ui.Container(self.text, accent_color=discord.Color.red())
         self.add_item(container)
 
+#embed view that makes use of buttons to add and remove the user from the queue
 class EmbedPugView(ui.LayoutView):
     def __init__(self, *, myQueueName: str, myText: str, myQueue: Queue) -> None:
         super().__init__()
@@ -290,5 +294,6 @@ class EmbedPugView(ui.LayoutView):
         container = ui.Container(self.queueName, self.sep, self.text, self.sep, self.row, accent_color=discord.Color.red())
         self.add_item(container)
 
+#applies the cog to the bot on startup
 async def setup(bot: commands.Bot)-> None:
     await bot.add_cog(Queue(bot))
