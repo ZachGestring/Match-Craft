@@ -55,7 +55,7 @@ class Queue(commands.Cog):
     #Add the specified role to the pug admin whitelist
     @app_commands.command()
     async def addadminrole(self, interaction: discord.Interaction, role: discord.Role):
-        if(await self.__verifyAdmin(interaction.user)):
+        if(self.__verifyAdmin(interaction.user)):
             outMessage=role.name + " already has pug admin perms"
             if role not in self.adminWhitelistRole:
                 self.adminWhitelistRole.append(role)
@@ -73,7 +73,7 @@ class Queue(commands.Cog):
     #Remove the specified role from the pug admin whitelist
     @app_commands.command()
     async def removeadminrole(self, interaction: discord.Interaction, role: discord.Role):
-        if(await self.__verifyAdmin(interaction.user)):
+        if(self.__verifyAdmin(interaction.user)):
             outMessage=role.name + " does not have pug admin perms"
             if role in self.adminWhitelistRole:
                 self.adminWhitelistRole.remove(role)
@@ -116,7 +116,7 @@ class Queue(commands.Cog):
     @app_commands.command()
     @app_commands.describe(game='The game the queue is for', maxplayers='The number of players needed for a match')
     async def startqueue(self, interaction: discord.Interaction, game: str, maxplayers: int):
-        if(await self.__verifyAdmin(interaction.user)):
+        if(self.__verifyAdmin(interaction.user)):
             channel=interaction.channel
             if channel.id not in self.queueDict.keys():
                 #try:    
@@ -146,7 +146,7 @@ class Queue(commands.Cog):
     #Stops the queue in the current channel if one exists
     @app_commands.command()
     async def stopqueue(self, interaction: discord.Interaction):
-        if(await self.__verifyAdmin(interaction.user)):
+        if(self.__verifyAdmin(interaction.user)):
             channel=interaction.channel
         #try:
             mes = await channel.fetch_message(self.queueDict[channel.id]["queue_message_id"])
